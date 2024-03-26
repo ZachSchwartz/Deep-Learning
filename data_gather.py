@@ -269,6 +269,7 @@ def get_matches_played(continent, regions, date):
                 if request.status_code == 200:
                     try:
                             matches = json.loads(request.text)
+                            print(matches)
                             continent_cursor.execute('''
                                 UPDATE players
                                 SET matches = ?
@@ -279,11 +280,14 @@ def get_matches_played(continent, regions, date):
                     except Exception as e:
                         print("Error processing API response:", e)
                 elif request.status_code == 404:
+                    print('finished user')
                     match_count = 0
                     index += 1
                 elif request.status_code == 429:
                     print("sleeping" + continent + region + index)
                     time.sleep(120)
+                else:
+                    print(request.status_code)
 
 
 def call_matches(continents_dictionary):
