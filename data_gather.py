@@ -263,7 +263,7 @@ def get_matches_played(continent, regions, date):
                     + continent
                     + ".api.riotgames.com/lol/match/v5/matches/by-puuid/"
                     + puuids[index]
-                    +'/ids?startTime=' + str(date.timestamp()) + '&type=ranked&start=' + match_count + '&count=100'
+                    +'/ids?startTime=' + str(date.timestamp()) + '&type=ranked&start=' + str(match_count) + '&count=100'
                     + api_key
                 )
                 if request.status_code == 200:
@@ -282,7 +282,7 @@ def get_matches_played(continent, regions, date):
                     match_count = 0
                     index += 1
                 elif request.status_code == 429:
-                    print("sleeping")
+                    print("sleeping" + continent + region + index)
                     time.sleep(120)
 
 
