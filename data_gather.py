@@ -4,8 +4,8 @@ import sqlite3
 import json
 import threading
 
-match_list_key = "api_key=" + "RGAPI-2e63df17-6450-406c-8070-3c9bf17aaf3b"
-api_key = "/ids?api_key=" + "RGAPI-2e63df17-6450-406c-8070-3c9bf17aaf3b"
+match_list_key = "api_key=" + "RGAPI-2e63df17-6450-406c-8070-3c9bf17aaf3b" # api used for the match list function
+api_key = "/ids?api_key=" + "RGAPI-2e63df17-6450-406c-8070-3c9bf17aaf3b" # api string used everywhere else
 region_list = [
     "br1",
     "eun1",
@@ -37,9 +37,9 @@ match_file_path = "match_database.db"
 def get_all_players():
     league_list = ["challenger", "grandmaster", "master"]
     player_conn = sqlite3.connect(db_file_path)
-    player_cursor = player_conn.cursor()
+    player_cursor = player_conn.cursor() # create connection to database
     for league in league_list:
-        for region in region_list:
+        for region in region_list: # loop through every ranked league, in each region
             request = requests.get(
                 "https://"
                 + region
@@ -48,7 +48,7 @@ def get_all_players():
                 + "leagues/by-queue/RANKED_SOLO_5x5"
                 + api_key
             )
-            if request.status_code == 200:
+            if request.status_code == 200: # If the request is successful, input basic info about the user
                 try:
                     users = json.loads(request.text)
                     for record in users["entries"]:
@@ -66,18 +66,17 @@ def get_all_players():
                             ),
                         )
                         player_conn.commit()
-                except Exception as e:
+                except Exception as e: # Except statement in case of error
                     print("Error processing API response:", e)
-            elif request.status_code == 429:
+            elif request.status_code == 429: # Should I get rate limited, the program will wait to try to request info again
                 print(region, league)
                 time.sleep(120)
 
 
 def get_puuids_by_region(region):
-    # Create a new SQLite connection and cursor for this thread
     region_conn = sqlite3.connect(db_file_path)
     region_cursor = region_conn.cursor()
-    region_cursor.execute("SELECT summonerId FROM players WHERE region = ?", (region,))
+    region_cursor.execute("SELECT summonerId FROM players WHERE region = ?", (region,)) # create list of every summonerid, then loop through the list
     summoner_ids = [row[0] for row in region_cursor.fetchall()]
     index = 0
     while index < len(summoner_ids):
@@ -88,7 +87,7 @@ def get_puuids_by_region(region):
             + summoner_ids[index]
             + api_key
         )
-        if request.status_code == 200:
+        if request.status_code == 200: # if successful, find the matching puuid for the given summoner id
             try:
                 user = json.loads(request.text)
                 region_cursor.execute(
@@ -110,40 +109,28 @@ def get_puuids_by_region(region):
 
 def call_puuids(region_list):
     threads = []
-    for region in region_list:
-        # Create a new database connection for each region
-        thread = threading.Thread(target=get_puuids_by_region, args=(region,))
+    for region in region_list: # creates a unique thread for each region, then calls the puuid finder
+        thread = threading.Thread(target=get_puuids_by_region, args=(region,)) # Using threading makes this function run significantly faster
         threads.append(thread)
         thread.start()
         print("new_thread created")
 
-        # Wait for all threads to finish
-    for thread in threads:
+    for thread in threads: # ensures the main thread waits for all threads to finish
         thread.join()
-
-
-
-
-
-
-
-
-
-
 
 
 def get_matches_played(continent, regions):
     continent_conn = sqlite3.connect(db_file_path)
     continent_cursor = continent_conn.cursor()
 
-    for region in regions:
+    for region in regions: # loop through all regions within the given continent
         continent_cursor.execute(
             "SELECT puuid FROM players WHERE region = ?", (region,)
         )
-        puuids = [row[0] for row in continent_cursor.fetchall()]
-        index = 0
-        match_count = 0
-        repeat_matches = []
+        puuids = [row[0] for row in continent_cursor.fetchall()] # find all puuids for the given region
+        index = 0 # tracks where in the puuids the function is
+        match_count = 0 # This variable tracks where to begin the search in a players history
+        repeat_matches = set()
         while index < len(puuids):
             request = requests.get(
                 "https://"
@@ -158,14 +145,15 @@ def get_matches_played(continent, regions):
             if request.status_code == 200:
                 try:
                     matches = json.loads(request.text)
-                    repeat_index = 0
-                    while repeat_index < len(matches):
-                        if matches[repeat_index] not in repeat_matches:
-                            repeat_matches.append(matches[repeat_index])
-                        else:
-                            del matches[repeat_index]
-                            repeat_index -= 1  # Decrement index to account for removed item
-                        repeat_index += 1  # Move to the next item in the list
+                    if not matches:
+                            break  # no more matches to process
+
+                    for match_id in matches: # loops through the returned matches to see if we already have them
+                            if match_id not in repeat_matches: # add to matches if we've seen it
+                                repeat_matches.add(match_id)
+                            else:
+                                continue
+
                     continent_cursor.execute(
                         """
                                 UPDATE players
@@ -176,13 +164,11 @@ def get_matches_played(continent, regions):
                     )
                     continent_conn.commit()
                     match_count += 100
+                    print(matches)
                 except Exception as e:
                     print("Error processing API response:", e)
-            elif request.status_code == 404:
-                match_count = 0
-                index += 1
             elif request.status_code == 429:
-                print("sleeping" + continent + region + index)
+                print("sleeping" + continent + region + str(index))
                 time.sleep(120)
             else:
                 print(request.status_code)
@@ -191,7 +177,6 @@ def get_matches_played(continent, regions):
 def call_match_list(continents_dictionary):
     threads = []
     for continent, regions in continents_dictionary.items():
-        # Create a new database connection for each region
         thread = threading.Thread(
             target=get_matches_played,
             args=(
@@ -203,14 +188,11 @@ def call_match_list(continents_dictionary):
         thread.start()
         print("new_thread created")
 
-        # Wait for all threads to finish
     for thread in threads:
         thread.join()
 
 
 call_match_list(continents_dictionary)
-
-
 
 
 def store_matches(continent, regions):
@@ -221,9 +203,9 @@ def store_matches(continent, regions):
         continent_cursor.execute(
             "SELECT matches FROM players WHERE region = ?", (region,)
         )
-        matches = [row[0] for row in continent_cursor.fetchall()]
-        match_index = 0
-        batch_index = 0
+        matches = [row[0] for row in continent_cursor.fetchall()] # returns list of lists of strings
+        match_index = 0 # index for overall match list
+        batch_index = 0 # index for individual matches per player
         while match_index < len(matches):
             while batch_index < len(matches[match_index]):
                 request = requests.get(
@@ -320,8 +302,10 @@ def store_matches(continent, regions):
                                 wardsKilled,
                                 wardsPlaced,
                                 win
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,(
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                            (
                                 info["gameId"],
                                 info["gameDuration"],
                                 info["participants"],
@@ -396,7 +380,7 @@ def store_matches(continent, regions):
                                 participant["wardsKilled"],
                                 participant["wardsPlaced"],
                                 participant["win"],
-                            )
+                            ),
                         )
                         continent_conn.commit()
                         batch_index += 1
@@ -414,7 +398,6 @@ def store_matches(continent, regions):
 def call_store_matches(continents_dictionary):
     threads = []
     for continent, regions in continents_dictionary.items():
-        # Create a new database connection for each region
         thread = threading.Thread(
             target=get_matches_played,
             args=(
@@ -426,6 +409,5 @@ def call_store_matches(continents_dictionary):
         thread.start()
         print("new_thread created")
 
-        # Wait for all threads to finish
     for thread in threads:
         thread.join()
