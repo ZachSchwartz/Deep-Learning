@@ -6,7 +6,7 @@ import threading
 import datetime
 
 dev_key = "RGAPI-42d505b4-1410-4a9b-b7fa-955bf98ab0a8"
-api_key = "?api_key=" + "RGAPI-2e63df17-6450-406c-8070-3c9bf17aaf3b"
+api_key = "api_key=" + "RGAPI-2e63df17-6450-406c-8070-3c9bf17aaf3b"
 region_list = [
     "br1",
     "eun1",
@@ -247,7 +247,7 @@ def call_puuids(region_list):
     for thread in threads:
         thread.join()
 
-def get_matches_played(continent, regions, date):
+def get_matches_played(continent, regions):
     continent_conn = sqlite3.connect(db_file_path)
     continent_cursor = continent_conn.cursor()
 
@@ -258,23 +258,25 @@ def get_matches_played(continent, regions, date):
         match_count = 0
 
         while index < len(puuids):
+                
                 request = requests.get(
                     "https://"
                     + continent
                     + ".api.riotgames.com/lol/match/v5/matches/by-puuid/"
                     + puuids[index]
-                    +'/ids?startTime=' + str(date.timestamp()) + '&type=ranked&start=' + str(match_count) + '&count=100'
+                    +'/ids?startTime=16417728000&type=ranked&start=' + str(match_count) + '&count=100&'
                     + api_key
                 )
                 if request.status_code == 200:
                     try:
                             matches = json.loads(request.text)
+                            matches_json = json.dumps(matches)
                             print(matches)
                             continent_cursor.execute('''
                                 UPDATE players
                                 SET matches = ?
                                 WHERE puuid = ?
-                            ''', (matches, puuids[index]))
+                            ''', (matches_json, puuids[index]))
                             continent_conn.commit()
                             match_count += 100
                     except Exception as e:
@@ -292,11 +294,9 @@ def get_matches_played(continent, regions, date):
 
 def call_matches(continents_dictionary):
     threads = []
-    date = datetime.datetime(2022, 1, 10, tzinfo=datetime.timezone.utc)
-    date = date.replace(hour=0, minute=0, second=0, microsecond=0)
     for continent, regions in continents_dictionary.items():
         # Create a new database connection for each region
-        thread = threading.Thread(target=get_matches_played, args=(continent, regions, date))
+        thread = threading.Thread(target=get_matches_played, args=(continent, regions,))
         threads.append(thread)
         thread.start()
         print('new_thread created')
