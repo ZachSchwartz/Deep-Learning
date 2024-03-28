@@ -4,7 +4,7 @@ import sqlite3
 import json
 import threading
 
-match_list_key = "api_key=" + "RGAPI-2e63df17-6450-406c-8070-3c9bf17aaf3b" # api used for the match list function
+match_list_key = "api_key=" + "RGAPI-2c336fa9-b99b-40c8-8fbd-d25ee8b55263" # api used for the match list function
 api_key = "/ids?api_key=" + "RGAPI-2e63df17-6450-406c-8070-3c9bf17aaf3b" # api string used everywhere else
 region_list = [
     "br1",
@@ -145,26 +145,24 @@ def get_matches_played(continent, regions):
             if request.status_code == 200:
                 try:
                     matches = json.loads(request.text)
-                    if not matches:
-                            break  # no more matches to process
-
-                    for match_id in matches: # loops through the returned matches to see if we already have them
-                            if match_id not in repeat_matches: # add to matches if we've seen it
-                                repeat_matches.add(match_id)
-                            else:
-                                continue
-
+                    new_matches = []
+                    for match in matches:
+                        if match not in repeat_matches:
+                            repeat_matches.add(match)
+                            new_matches.append(match)
+                    if not new_matches:
+                        index += 1
+                        continue
                     continent_cursor.execute(
                         """
                                 UPDATE players
                                 SET matches = ?
                                 WHERE puuid = ?
                             """,
-                        (json.dumps(matches), puuids[index]),
+                        (json.dumps(new_matches), puuids[index]),
                     )
                     continent_conn.commit()
                     match_count += 100
-                    print(matches)
                 except Exception as e:
                     print("Error processing API response:", e)
             elif request.status_code == 429:
