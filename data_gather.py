@@ -4,7 +4,7 @@ import sqlite3
 import json
 import threading
 
-match_list_key = "api_key=" + "RGAPI-2fb2726b-033e-401d-b696-a076d3d8b922" # api used for the match list function
+match_list_key = "api_key=" + "RGAPI-cb0141a9-b92a-4104-80aa-9ca716a43b9a" # api used for the match list function
 api_key = "/ids?api_key=" + "RGAPI-2e63df17-6450-406c-8070-3c9bf17aaf3b" # api string used everywhere else
 region_list = [
     "br1",
@@ -24,6 +24,7 @@ region_list = [
     "tw2",
     "vn2",
 ]
+
 continents_dictionary = {
     "americas": ["na1", "br1", "la1", "la2"],
     "asia": ["jp1", "kr"],
