@@ -4,7 +4,7 @@ import sqlite3
 import json
 import threading
 
-match_list_key = "api_key=" + "RGAPI-2c336fa9-b99b-40c8-8fbd-d25ee8b55263" # api used for the match list function
+match_list_key = "api_key=" + "RGAPI-2fb2726b-033e-401d-b696-a076d3d8b922" # api used for the match list function
 api_key = "/ids?api_key=" + "RGAPI-2e63df17-6450-406c-8070-3c9bf17aaf3b" # api string used everywhere else
 region_list = [
     "br1",
@@ -145,23 +145,11 @@ def get_matches_played(continent, regions):
             if request.status_code == 200:
                 try:
                     matches = json.loads(request.text)
-                    new_matches = []
-                    for match in matches:
-                        if match not in repeat_matches:
-                            repeat_matches.add(match)
-                            new_matches.append(match)
-                    if not new_matches:
+                    if len(matches) == 0:
                         index += 1
                         continue
-                    continent_cursor.execute(
-                        """
-                                UPDATE players
-                                SET matches = ?
-                                WHERE puuid = ?
-                            """,
-                        (json.dumps(new_matches), puuids[index]),
-                    )
-                    continent_conn.commit()
+                    for match in matches:
+                        repeat_matches.add(match)
                     match_count += 100
                 except Exception as e:
                     print("Error processing API response:", e)
@@ -170,6 +158,15 @@ def get_matches_played(continent, regions):
                 time.sleep(120)
             else:
                 print(request.status_code)
+        continent_cursor.execute(
+                        """
+                                UPDATE players
+                                SET matches = ?
+                                WHERE puuid = ?
+                            """,
+                        (json.dumps(list(repeat_matches)), puuids[0]),
+                    )
+        continent_conn.commit()
 
 
 def call_match_list(continents_dictionary):
@@ -188,7 +185,6 @@ def call_match_list(continents_dictionary):
 
     for thread in threads:
         thread.join()
-
 
 call_match_list(continents_dictionary)
 
