@@ -201,9 +201,8 @@ def store_matches(continent, regions):
         player_cursor.execute(
             "SELECT matches FROM players WHERE region = ?", (region,)
         )
-        matches = [row[0] for row in player_cursor.fetchall()]
-        matches = [match[2:-2] for match in matches[0].split()]
-        print('test')
+        matches = [row[0] for row in player_cursor.fetchall()] # the match ids are stored as a list with one element, a giant string
+        matches = [match[2:-2] for match in matches[0].split()] # this line splits this string into a list that can be looped through
         match_index = 0 # index for overall match list
         while match_index < len(matches):
                 request = requests.get(
@@ -213,7 +212,6 @@ def store_matches(continent, regions):
                     + matches[match_index]
                     + store_matches_key
                 )
-                print('test2')
                 if request.status_code == 200:
                     try:
                         match_data = json.loads(request.text)
@@ -223,10 +221,8 @@ def store_matches(continent, regions):
                         participant = info["participants"]
                         
                         team = info["teams"]
-                        print(team)
                         blue_objectives = team[0]["objectives"]
                         red_objectives = team[1]["objectives"]
-                        print('test3')
                         match_cursor.execute(
                             """
                             INSERT INTO matches (
@@ -415,5 +411,5 @@ def call_store_matches():
         thread.join()
 
 #call_match_list(continents_dictionary)
-call_store_matches()
+#call_store_matches()
         
