@@ -187,7 +187,7 @@ def call_match_list(continents_dictionary):
     for thread in threads:
         thread.join()
 
-call_match_list(continents_dictionary)
+
 
 
 def store_matches(continent, regions):
@@ -198,16 +198,14 @@ def store_matches(continent, regions):
         continent_cursor.execute(
             "SELECT matches FROM players WHERE region = ?", (region,)
         )
-        matches = [row[0] for row in continent_cursor.fetchall()] # returns list of lists of strings
+        matches = [row[0] for row in continent_cursor.fetchall()]
         match_index = 0 # index for overall match list
-        batch_index = 0 # index for individual matches per player
         while match_index < len(matches):
-            while batch_index < len(matches[match_index]):
                 request = requests.get(
                     "https://"
                     + continent
                     + ".api.riotgames.com/lol/match/v5/matches/"
-                    + matches[match_index][batch_index]
+                    + matches[match_index]
                     + api_key
                 )
                 if request.status_code == 200:
@@ -378,7 +376,7 @@ def store_matches(continent, regions):
                             ),
                         )
                         continent_conn.commit()
-                        batch_index += 1
+                        match_index += 1
                     except Exception as e:
                         print("Error processing API response:", e)
                 elif request.status_code == 429:
@@ -386,11 +384,9 @@ def store_matches(continent, regions):
                     time.sleep(120)
                 else:
                     print(request.status_code)
-            batch_index = 0
-            match_index += 1
 
 
-def call_store_matches(continents_dictionary):
+def call_store_matches():
     threads = []
     for continent, regions in continents_dictionary.items():
         thread = threading.Thread(
@@ -406,3 +402,6 @@ def call_store_matches(continents_dictionary):
 
     for thread in threads:
         thread.join()
+
+#call_match_list(continents_dictionary)
+call_store_matches()
