@@ -5,7 +5,8 @@ import json
 import threading
 
 match_list_key = "api_key=" + "RGAPI-cb0141a9-b92a-4104-80aa-9ca716a43b9a" # api used for the match list function
-api_key = "/ids?api_key=" + "RGAPI-2e63df17-6450-406c-8070-3c9bf17aaf3b" # api string used everywhere else
+store_matches_key = "?api_key=" + "RGAPI-cb0141a9-b92a-4104-80aa-9ca716a43b9a" # api used for the store_matches function
+api_key = "/ids?api_key=" + "RGAPI-cb0141a9-b92a-4104-80aa-9ca716a43b9a" # api string used everywhere else
 region_list = [
     "br1",
     "eun1",
@@ -26,10 +27,10 @@ region_list = [
 ]
 
 continents_dictionary = {
-    "americas": ["na1", "br1", "la1", "la2"],
-    "asia": ["jp1", "kr"],
-    "europe": ["eun1", "euw1", "ru", "tr1"],
-    "sea": ["oc1", "ph2", "sg2", "th2", "tw2", "vn2"],
+    "americas": ["na1"],#, "br1", "la1", "la2"],
+    #"asia": ["jp1"],#, "kr"],
+    #"europe": ["eun1"],#, "euw1", "ru", "tr1"],
+    #"sea": ["oc1"]#, "ph2", "sg2", "th2", "tw2", "vn2"],
 }
 db_file_path = "player_database.db"
 match_file_path = "match_database.db"
@@ -191,14 +192,18 @@ def call_match_list(continents_dictionary):
 
 
 def store_matches(continent, regions):
-    continent_conn = sqlite3.connect(match_file_path)
-    continent_cursor = continent_conn.cursor()
+    player_conn = sqlite3.connect(db_file_path)
+    player_cursor = player_conn.cursor()
+    match_conn = sqlite3.connect(match_file_path)
+    match_cursor = player_conn.cursor()
 
     for region in regions:
-        continent_cursor.execute(
+        player_cursor.execute(
             "SELECT matches FROM players WHERE region = ?", (region,)
         )
-        matches = [row[0] for row in continent_cursor.fetchall()]
+        matches = [row[0] for row in player_cursor.fetchall()]
+        matches = [match[2:-2] for match in matches[0].split()]
+        print('test')
         match_index = 0 # index for overall match list
         while match_index < len(matches):
                 request = requests.get(
@@ -206,17 +211,23 @@ def store_matches(continent, regions):
                     + continent
                     + ".api.riotgames.com/lol/match/v5/matches/"
                     + matches[match_index]
-                    + api_key
+                    + store_matches_key
                 )
+                print('test2')
                 if request.status_code == 200:
                     try:
                         match_data = json.loads(request.text)
-                        print(matches)
+                        
                         info = match_data["info"]
+                        
                         participant = info["participants"]
+                        
                         team = info["teams"]
-                        objectives = team["objectives"]
-                        continent_cursor.execute(
+                        print(team)
+                        blue_objectives = team[0]["objectives"]
+                        red_objectives = team[1]["objectives"]
+                        print('test3')
+                        match_cursor.execute(
                             """
                             INSERT INTO matches (
                                 gameId,
@@ -303,20 +314,20 @@ def store_matches(continent, regions):
                                 info["gameDuration"],
                                 info["participants"],
                                 info["gameVersion"],
-                                objectives["baron"]["first"],
-                                objectives["baron"]["kills"],
-                                objectives["champion"]["first"],
-                                objectives["champion"]["kills"],
-                                objectives["dragon"]["first"],
-                                objectives["dragon"]["kills"],
-                                objectives["inhibitor"]["first"],
-                                objectives["inhibitor"]["kills"],
-                                objectives["riftHerald"]["first"],
-                                objectives["riftHerald"]["kills"],
-                                objectives["tower"]["first"],
-                                objectives["tower"]["kills"],
-                                team["win"],
-                                participant["assists"],
+                                [int(blue_objectives["baron"]["first"]), int(red_objectives["baron"]["first"])],
+                                [blue_objectives["baron"]["kills"], red_objectives["baron"]["kills"]],
+                                [int(blue_objectives["champion"]["first"]), int(red_objectives["champion"]["first"])],
+                                [blue_objectives["champion"]["kills"], red_objectives["champion"]["kills"]],
+                                [int(blue_objectives["dragon"]["first"]), int(red_objectives["dragon"]["first"])],
+                                [blue_objectives["dragon"]["kills"], red_objectives["dragon"]["kills"]],
+                                [int(blue_objectives["inhibitor"]["first"]), int(red_objectives["inhibitor"]["first"])],
+                                [blue_objectives["inhibitor"]["kills"], red_objectives["inhibitor"]["kills"]],
+                                [int(blue_objectives["riftHerald"]["first"]), int(red_objectives["riftHerald"]["first"])],
+                                [blue_objectives["riftHerald"]["kills"], red_objectives["riftHerald"]["kills"]],
+                                [int(blue_objectives["tower"]["first"]), int(red_objectives["tower"]["first"])],
+                                [blue_objectives["tower"]["kills"], red_objectives["tower"]["kills"]],
+                                int(team["win"]),
+                                                                participant["assists"],
                                 participant["baronKills"],
                                 participant["champExperience"],
                                 participant["champLevel"],
@@ -330,10 +341,10 @@ def store_matches(continent, regions):
                                 participant["detectorWardsPlaced"],
                                 participant["doubleKills"],
                                 participant["dragonKills"],
-                                participant["firstBloodAssist"],
-                                participant["firstBloodKill"],
-                                participant["firstTowerAssist"],
-                                participant["firstTowerKill"],
+                                int(participant["firstBloodAssist"]),
+                                int(participant["firstBloodKill"]),
+                                int(participant["firstTowerAssist"]),
+                                int(participant["firstTowerKill"]),
                                 participant["goldEarned"],
                                 participant["goldSpent"],
                                 participant["inhibitorKills"],
@@ -375,7 +386,7 @@ def store_matches(continent, regions):
                                 participant["win"],
                             ),
                         )
-                        continent_conn.commit()
+                        match_conn.commit()
                         match_index += 1
                     except Exception as e:
                         print("Error processing API response:", e)
@@ -390,7 +401,7 @@ def call_store_matches():
     threads = []
     for continent, regions in continents_dictionary.items():
         thread = threading.Thread(
-            target=get_matches_played,
+            target=store_matches,
             args=(
                 continent,
                 regions,
@@ -405,3 +416,4 @@ def call_store_matches():
 
 #call_match_list(continents_dictionary)
 call_store_matches()
+        
